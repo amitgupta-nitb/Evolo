@@ -37,6 +37,7 @@ Install a webserver with php for hosting the configuration website, install scap
 sudo apt-get install apache2 -y
 sudo apt-get install php5 libapache2-mod-php5 -y
 sudo apt-get install tcpdump graphviz imagemagick python-gnuplot python-crypto python-pyx
+sudo apt-get install python-scapy
 sudo apt-get install python-pip
 sudo pip install wifi
 sudo reboot
